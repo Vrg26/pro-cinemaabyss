@@ -1,0 +1,86 @@
+@startuml "To-Be Architecture"
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_TOP_DOWN()
+LAYOUT_WITH_LEGEND()
+title Архитектура «Кинобездна» — To-Be (целевая)
+
+Person(user, "Пользователь", "Ноутбуки, смарт ТВ, мобильные устройства")
+
+System_Boundary(cinemaabyss, "Кинобездна") {
+
+    Container(gateway, "API Gateway", "Go", "Единая точка входа, маршрутизация, валидация JWT, rate limiting")
+
+    ' --- Слой сервисов ---
+    System_Boundary(core_services, "Доменные сервисы") {
+        Container(users_svc, "Users Service", "Go", "Регистрация, аутентификация, выдача JWT, профили")
+        Container(movies_svc, "Movies Service", "Go", "Метаданные фильмов, жанры, актёры, оценки, рекомендации")
+        Container(content_svc, "Content Service", "Go", "Проксирование и стриминг видео из внешних кинотеатров")
+        Container(payments_svc, "Payments Service", "Go", "Обработка платежей, скидки")
+        Container(subscriptions_svc, "Subscriptions Service", "Go", "Управление подписками, тарифные планы, лицензии")
+        Container(events_svc, "Events Service", "Go", "Обработка событий, уведомления, аналитика")
+    }
+
+    ' --- Слой данных ---
+    System_Boundary(data_layer, "Слой данных") {
+        ContainerDb(users_db, "Users DB", "PostgreSQL", "Учётные записи")
+        ContainerDb(movies_db, "Movies DB", "PostgreSQL", "Метаданные фильмов")
+        ContainerDb(payments_db, "Payments DB", "PostgreSQL", "Транзакции, скидки")
+        ContainerDb(subscriptions_db, "Subscriptions DB", "PostgreSQL", "Подписки, тарифы, лицензии")
+        ContainerDb(events_db, "Events DB", "PostgreSQL", "Журнал событий")
+    }
+
+    ContainerQueue(kafka, "Apache Kafka", "Kafka", "Топики: user-events, movie-events,\npayment-events, subscription-events, content-events")
+}
+
+System_Ext(payment, "Платёжная система", "Внешний процессинг платежей")
+System_Ext(recommender, "Рекомендательная система", "Строит модель на событиях, отдаёт подборки")
+System_Ext(cinemas, "Онлайн-кинотеатры", "Источники видеоконтента")
+
+' --- Расположение элементов ---
+Lay_R(users_svc, movies_svc)
+Lay_R(movies_svc, content_svc)
+Lay_R(content_svc, payments_svc)
+Lay_R(payments_svc, subscriptions_svc)
+Lay_R(subscriptions_svc, events_svc)
+
+Lay_R(users_db, movies_db)
+Lay_R(movies_db, payments_db)
+Lay_R(payments_db, subscriptions_db)
+Lay_R(subscriptions_db, events_db)
+
+' === СВЯЗИ ===
+
+' Пользователь -> Gateway
+Rel_D(user, gateway, "REST API", "HTTPS + JWT")
+
+' Gateway -> Сервисы
+Rel_D(gateway, users_svc, "Аутентификация", "HTTP")
+Rel_D(gateway, movies_svc, "Запросы фильмов", "HTTP + JWT")
+Rel_D(gateway, content_svc, "Запросы контента", "HTTP + JWT")
+Rel_D(gateway, payments_svc, "Запросы платежей", "HTTP + JWT")
+Rel_D(gateway, subscriptions_svc, "Запросы подписок", "HTTP + JWT")
+Rel_D(gateway, events_svc, "Запросы событий", "HTTP + JWT")
+
+' Сервисы -> БД
+Rel_D(users_svc, users_db, "", "SQL")
+Rel_D(movies_svc, movies_db, "", "SQL")
+Rel_D(payments_svc, payments_db, "", "SQL")
+Rel_D(subscriptions_svc, subscriptions_db, "", "SQL")
+Rel_D(events_svc, events_db, "", "SQL")
+
+' Сервисы -> Kafka (все публикуют)
+Rel_D(users_svc, kafka, "user-events", "Async")
+Rel_D(movies_svc, kafka, "movie-events", "Async")
+Rel_D(payments_svc, kafka, "payment-events", "Async")
+Rel_D(subscriptions_svc, kafka, "subscription-events", "Async")
+Rel_D(content_svc, kafka, "content-events", "Async")
+Rel_D(events_svc, kafka, "Читает все события", "Async")
+
+' Внешние системы
+Rel_R(payments_svc, payment, "Обработка платежей", "HTTPS")
+Rel_R(movies_svc, recommender, "Запрос рекомендаций", "HTTPS")
+Rel_L(recommender, kafka, "Читает события", "Async")
+Rel_R(content_svc, cinemas, "Проксирование видео", "HTTPS")
+
+@enduml
