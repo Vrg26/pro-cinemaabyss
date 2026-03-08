@@ -6,7 +6,8 @@
 Результат представьте в виде контейнерной диаграммы в нотации С4.
 Добавьте ссылку на файл в этот шаблон
 [C4 Container Diagram — As-Is](docs/c4-as-is.puml)
-[C4 Container Diagram — To-Be](docs/c4-to-be.puml)
+[C4 Container Diagram — To-Be (целевая)](docs/c4-to-be.puml)
+[C4 Container Diagram — To-Be (спринт 2)](docs/c4-to-be-sprint2.puml)
 
 
 ## Задание 2
