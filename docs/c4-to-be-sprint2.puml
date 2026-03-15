@@ -1,0 +1,51 @@
+@startuml "To-Be Sprint 2 Architecture"
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_TOP_DOWN()
+LAYOUT_WITH_LEGEND()
+title Кинобездна — To-Be Container Diagram (Sprint 2)
+
+Person(user, "Пользователь", "Использует веб, мобильное приложение или Smart TV")
+
+System_Boundary(cinema, "Кинобездна") {
+    Container(proxy, "Proxy / API Gateway", "Go", "Единая точка входа. Маршрутизирует клиентские запросы к monolith и movies. Поддерживает постепенную миграцию /api/movies через MOVIES_MIGRATION_PERCENT")
+
+    Container(monolith, "Monolith", "Go", "Основное приложение. Содержит пользователей, подписки, платежи, видео и часть API фильмов")
+    ContainerDb(monolithDb, "PostgreSQL", "PostgreSQL 14", "Основная база данных монолита")
+
+    Container(movies, "Movies Service", "Go", "Выделенный микросервис метаданных фильмов: жанры, актёры, рейтинги")
+    ContainerDb(moviesDb, "Movies DB", "PostgreSQL", "База метаданных фильмов")
+
+    Container(events, "Events Service", "Go", "MVP-сервис событий. Принимает API-вызов, публикует события в Kafka и читает их consumer'ом")
+    ContainerQueue(kafka, "Apache Kafka", "Kafka", "Топики: user-events, payment-events, movie-events")
+}
+
+System_Ext(payment, "Платёжная система", "Внешний процессинг платежей")
+System_Ext(reco, "Рекомендательная система", "Внешняя система подбора контента")
+System_Ext(content, "Онлайн-кинотеатры", "Внешние поставщики видеоконтента")
+
+Lay_R(proxy, monolith)
+Lay_D(monolith, monolithDb)
+Lay_R(monolith, movies)
+Lay_D(movies, moviesDb)
+Lay_R(movies, events)
+Lay_D(events, kafka)
+
+Rel_D(user, proxy, "Вызывает REST API", "HTTPS/JSON")
+
+Rel_R(proxy, monolith, "Проксирует /api/users, /api/payments, /api/subscriptions и часть /api/movies", "HTTP/REST")
+Rel_R(proxy, movies, "Направляет часть запросов /api/movies", "HTTP/REST")
+Rel_U(proxy, movies, "Доля трафика управляется MOVIES_MIGRATION_PERCENT", "Env/config")
+Rel_D(proxy, events, "Маршрутизирует /api/events", "HTTP/REST")
+
+Rel_D(monolith, monolithDb, "Читает и пишет данные", "SQL")
+Rel_D(movies, moviesDb, "Читает и пишет метаданные фильмов", "SQL")
+
+Rel_D(events, kafka, "Публикует события", "Producer")
+Rel_U(kafka, events, "Читает события", "Consumer")
+
+Rel_R(monolith, payment, "Обрабатывает платежи", "HTTPS")
+Rel_R(monolith, reco, "Запрашивает рекомендации", "HTTP/API")
+Rel_R(monolith, content, "Получает контент", "HTTP/API")
+
+@enduml

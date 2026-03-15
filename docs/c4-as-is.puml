@@ -1,0 +1,28 @@
+@startuml "As-Is Architecture"
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+title Архитектура «Кинобездна» — As-Is
+
+Person(user, "Пользователь", "Ноутбуки, смарт ТВ, мобильные устройства")
+
+System_Boundary(cinemaabyss, "Кинобездна") {
+    Container(monolith, "Монолит", "Go", "Пользователи, фильмы, платежи, подписки, скидки, метаданные")
+    ContainerDb(db, "PostgreSQL", "PostgreSQL 14", "Единая база данных для всех сущностей")
+}
+
+System_Ext(payment, "Платёжная система", "Обработка платежей")
+System_Ext(recommender, "Рекомендательная система", "Подбор контента для пользователей")
+System_Ext(rabbitmq, "RabbitMQ", "Брокер сообщений для рекомендаций")
+System_Ext(cinemas, "Онлайн-кинотеатры", "Источники контента")
+System_Ext(s3, "S3", "Хранилище видеоконтента")
+
+Rel(user, monolith, "REST API", "HTTPS")
+Rel(monolith, db, "Чтение/запись данных", "SQL")
+Rel(monolith, payment, "Обработка платежей", "HTTPS")
+Rel(monolith, rabbitmq, "Запрос рекомендаций", "AMQP")
+Rel(rabbitmq, recommender, "Передача данных", "AMQP")
+Rel(monolith, cinemas, "Получение контента", "HTTPS")
+Rel(monolith, s3, "Загрузка/раздача видео", "HTTPS")
+
+@enduml
